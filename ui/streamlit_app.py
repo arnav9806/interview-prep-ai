@@ -123,18 +123,38 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
                 print("Search test distances:", distances)
                 print("Search test indices:", indices)
 
-            # ==============================
             # Generate Questions
             # ==============================
             if generate_questions_btn:
                 st.subheader("Interview Questions")
-                questions_list = generate_questions(
-                    query_text=resume_text,
-                    difficulty=difficulty,
-                    question_type=question_type
-                )
+                with st.spinner("Generating questions..."):
+                    # JD provided
+                    if jd_text.strip():
+                        questions_list = generate_questions(
+                            query_text=resume_text,
+                            difficulty=difficulty,
+                            question_type=question_type,
+                            jd_text=jd_text
+                        )
+                    # Resume only
+                    else:
+                        questions_list = generate_questions(
+                            query_text=resume_text,
+                            difficulty=difficulty,
+                            question_type=question_type
+                        )
                 for i, q in enumerate(questions_list, 1):
                     st.write(f"{i}. {q}")
+                    
+            # if generate_questions_btn:
+            #     st.subheader("Interview Questions")
+            #     questions_list = generate_questions(
+            #         query_text=resume_text,
+            #         difficulty=difficulty,
+            #         question_type=question_type
+            #     )
+            #     for i, q in enumerate(questions_list, 1):
+            #         st.write(f"{i}. {q}")
 
             # ==============================
             # ATS Score
