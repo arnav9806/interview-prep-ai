@@ -12,6 +12,7 @@ from app.rag.vector_store import ResumeVectorStore
 from app.chains.question_chain import generate_questions
 from app.services.ats_service import calculate_ats_score
 from app.services.resume_analysis import analyze_resume
+from app.services.resume_improvement import improve_resume
 
 # =====================================
 # Page Configuration
@@ -84,28 +85,28 @@ st.divider()
 if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
 
     if resume_file is None:
-        st.error("❌ Please upload a resume first.")
+        st.error("Please upload a resume first.")
     else:
         try:
             # -----------------------
             # Parse Resume
             # -----------------------
             resume_text = parse_resume(resume_file)
-            print("📄 Resume text extracted successfully")
-            print("📏 Resume text length:", len(resume_text))
+            print("Resume text extracted successfully")
+            print("Resume text length:", len(resume_text))
 
             # -----------------------
             # Chunk Resume
             # -----------------------
             chunks = chunk_text(resume_text)
-            print("✂️ Total chunks created:", len(chunks))
+            print("Total chunks created:", len(chunks))
             # print("First chunk preview:\n", chunks[0])
 
             # -----------------------
             # Create Embeddings
             # -----------------------
             embeddings = create_embeddings(chunks)
-            print("🔢 Embeddings created")
+            print("Embeddings created")
             print("First embedding vector length:", len(embeddings[0]))
             print("Total embeddings:", len(embeddings))
 
@@ -132,8 +133,6 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
                     difficulty=difficulty,
                     question_type=question_type
                 )
-                # print("Questions output:\n", questions_list)
-
                 for i, q in enumerate(questions_list, 1):
                     st.write(f"{i}. {q}")
 
@@ -141,20 +140,13 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
             # ATS Score
             # ==============================
             elif calculate_ats_btn:
-
                 if jd_text.strip():
-
                     with st.spinner("Calculating ATS Score..."):
-
                         ats_result = calculate_ats_score(resume_text, jd_text)
-
-                    st.subheader("📊 ATS Score")
-
+                    st.subheader("ATS Score")
                     st.metric("Score", f"{ats_result['score']}%")
-
                     st.divider()
-
-                    st.write("### ✅ Matched Skills")
+                    st.write("Matched Skills")
 
                     if ats_result["matched_skills"]:
                         for skill in ats_result["matched_skills"]:
@@ -162,8 +154,7 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
                     else:
                         st.write("No matched skills found")
 
-                    st.write("### ❌ Missing Skills")
-
+                    st.write(" Missing Skills")
                     if ats_result["missing_skills"]:
                         for skill in ats_result["missing_skills"]:
                             st.write(f"- {skill}")
@@ -173,12 +164,9 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
                 else:
 
                     st.warning("No Job Description provided. Running resume analysis instead.")
-
                     with st.spinner("Analyzing Resume..."):
-
                         result = analyze_resume(resume_text)
-
-                    st.subheader("📄 Resume Analysis")
+                    st.subheader("Resume Analysis")
 
                     st.write(result)
             # elif calculate_ats_btn:
@@ -192,16 +180,24 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
             # ==============================
             # Resume Improvements
             # ==============================
-            elif improve_resume_btn:
-                st.subheader("Resume Improvements")
-                suggestions = [
-                    "Add measurable achievements",
-                    "Improve project descriptions",
-                    "Include cloud technologies",
-                    "Add GitHub project links"
-                ]
-                for s in suggestions:
-                    st.write(f"- {s}")
+            elif improve_resume:
+                st.subheader("AI Resume Improvements")
+                with st.spinner("Analyzing resume..."):
+                    if jd_text.strip():
+                        result = improve_resume(resume_text, jd_text)
+                    else:
+                        result = improve_resume(resume_text)
+                st.write(result)
+            # elif improve_resume_btn:
+            #     st.subheader("Resume Improvements")
+            #     suggestions = [
+            #         "Add measurable achievements",
+            #         "Improve project descriptions",
+            #         "Include cloud technologies",
+            #         "Add GitHub project links"
+            #     ]
+            #     for s in suggestions:
+            #         st.write(f"- {s}")
 
         except Exception as e:
             st.error(f"Error processing resume: {e}")

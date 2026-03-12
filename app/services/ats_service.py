@@ -37,10 +37,10 @@ def extract_skills_from_text(text):
 
 def calculate_ats_score(resume_text, jd_text):
 
-    print("🔍 Extracting resume skills...")
+    print("Extracting resume skills...")
     resume_skills = extract_skills_from_text(resume_text)
 
-    print("🔍 Extracting JD skills...")
+    print("Extracting JD skills...")
     jd_skills = extract_skills_from_text(jd_text)
 
     matched = list(set(resume_skills) & set(jd_skills))
