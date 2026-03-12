@@ -1,5 +1,3 @@
-# app/parsers/resume_parser.py
-
 import pypdf
 import docx2txt
 
