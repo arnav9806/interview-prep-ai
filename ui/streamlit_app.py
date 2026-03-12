@@ -43,7 +43,7 @@ difficulty = st.sidebar.selectbox(
 
 question_type = st.sidebar.selectbox(
     "Select Question Type",
-    ["Technical", "Programming", "Scenario Based", "HR"]
+    ["Technical", "Programming", "Scenario Based", "HR","DSA Coding", "SQL Coding"]
 )
 
 # =====================================

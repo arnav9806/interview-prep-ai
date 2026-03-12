@@ -27,7 +27,7 @@ def generate_questions(query_text: str, difficulty: str, question_type: str):
     prompt = f"""
 You are an expert technical interviewer.
 
-Based on the following resume, generate 5 {difficulty} level {question_type} interview questions.
+Based on the following resume, generate 5 {difficulty} level {question_type} interview questions and one more thing if question is DSA and difficulty is intermediate only then ask questions on array.
 
 Resume:
 {query_text}
