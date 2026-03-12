@@ -9,12 +9,12 @@ load_dotenv()
 
 api_key = os.getenv("GROQ_API_KEY")
 
-print("🔑 Loading Groq API key...")
+print("Loading Groq API key...")
 
 # Initialize Groq client
 client = Groq(api_key=api_key)
 
-print("✅ Groq client initialized")
+print("Groq client initialized")
 
 
 def generate_questions(query_text: str, difficulty: str, question_type: str):
@@ -22,7 +22,7 @@ def generate_questions(query_text: str, difficulty: str, question_type: str):
     Generate interview questions from resume text
     """
 
-    print("🧠 Generating interview questions with Groq...")
+    print("Generating interview questions with Groq...")
 
     prompt = f"""
 You are an expert technical interviewer.
@@ -54,7 +54,7 @@ Rules:
         # Extract response text
         questions_text = response.choices[0].message.content.strip()
 
-        print("📄 Raw LLM output:")
+        print("Raw LLM output:")
         # print(questions_text)
 
         # Convert text to list
@@ -64,14 +64,14 @@ Rules:
             if q.strip()
         ]
 
-        print("✅ Questions generated successfully")
-        print("📊 Total questions:", len(questions))
+        print("Questions generated successfully")
+        print("Total questions:", len(questions))
 
         return questions
 
     except Exception as e:
 
-        print("❌ Error generating questions:", e)
+        print(" Error generating questions:", e)
 
         return [
             "Error generating questions. Please try again."
