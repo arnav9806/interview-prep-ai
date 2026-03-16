@@ -33,3 +33,4 @@ def analyze_resume(resume_text):
     print(result,"<<<<<<<<<<result")
 
     return result
+
