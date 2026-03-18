@@ -140,35 +140,65 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
             # ATS Score
             # ==============================
             elif calculate_ats_btn:
+
+                with st.spinner("Calculating ATS Score..."):
+
+                    ats_result = calculate_ats_score(resume_text, jd_text)
+
+                st.subheader("ATS Score")
+
+                st.metric("ATS Score", f"{ats_result['score']}%")
+
                 if jd_text.strip():
-                    with st.spinner("Calculating ATS Score..."):
-                        ats_result = calculate_ats_score(resume_text, jd_text)
-                    st.subheader("ATS Score")
-                    st.metric("Score", f"{ats_result['score']}%")
-                    st.divider()
-                    st.write("Matched Skills")
 
-                    if ats_result["matched_skills"]:
-                        for skill in ats_result["matched_skills"]:
-                            st.write(f"- {skill}")
-                    else:
-                        st.write("No matched skills found")
-
-                    st.write(" Missing Skills")
-                    if ats_result["missing_skills"]:
-                        for skill in ats_result["missing_skills"]:
-                            st.write(f"- {skill}")
-                    else:
-                        st.write("No missing skills 🎉")
+                    st.write("Semantic Match Score:", ats_result["semantic_score"])
+                    st.write("Resume Quality Score:", ats_result["quality_score"])
 
                 else:
 
-                    st.warning("No Job Description provided. Running resume analysis instead.")
-                    with st.spinner("Analyzing Resume..."):
-                        result = analyze_resume(resume_text)
-                    st.subheader("Resume Analysis")
+                    st.write("Resume Quality Score:", ats_result["quality_score"])
 
-                    st.write(result)
+                # st.metric("Final Score", f"{ats_result['score']}%")
+
+                # if jd_text.strip():
+
+                #     st.write("Semantic Match Score:", ats_result["semantic_score"])
+                #     st.write("Skill Match Score:", ats_result["skill_score"])
+                #     st.write("Resume Quality Score:", ats_result["quality_score"])
+
+                # else:
+
+                #     st.write("Resume Quality Score:", ats_result["quality_score"])
+            # elif calculate_ats_btn:
+            #     if jd_text.strip():
+            #         with st.spinner("Calculating ATS Score..."):
+            #             ats_result = calculate_ats_score(resume_text, jd_text)
+            #         st.subheader("ATS Score")
+            #         st.metric("Score", f"{ats_result['score']}%")
+            #         st.divider()
+            #         st.write("Matched Skills")
+
+            #         if ats_result["matched_skills"]:
+            #             for skill in ats_result["matched_skills"]:
+            #                 st.write(f"- {skill}")
+            #         else:
+            #             st.write("No matched skills found")
+
+            #         st.write(" Missing Skills")
+            #         if ats_result["missing_skills"]:
+            #             for skill in ats_result["missing_skills"]:
+            #                 st.write(f"- {skill}")
+            #         else:
+            #             st.write("No missing skills 🎉")
+
+            #     else:
+
+            #         st.warning("No Job Description provided. Running resume analysis instead.")
+            #         with st.spinner("Analyzing Resume..."):
+            #             result = analyze_resume(resume_text)
+            #         st.subheader("Resume Analysis")
+
+            #         st.write(result)
             # elif calculate_ats_btn:
             #     st.subheader("ATS Score")
             #     st.metric("Score", "78 / 100")
