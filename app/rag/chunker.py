@@ -1,4 +1,5 @@
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+# from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import re
 
 def clean_text(text):
@@ -209,7 +210,7 @@ def chunk_text(text):
 
     sections = split_into_sections(text)
     
-    sections = split_into_sections(text)
+    # sections = split_into_sections(text)
 
     # ======================================
     # 🔥 MERGE SMALL SECTIONS (ADD HERE)
