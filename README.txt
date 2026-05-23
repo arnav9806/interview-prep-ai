@@ -2,6 +2,7 @@
 
 >>>>>   you should create the virtual enviornment
 command: python -m venv venv
+py -3.8 -m venv venv
 
 >>>>>   also activate the virtual enviornment
 command: venv\Scripts\activate
@@ -11,3 +12,6 @@ command: pip install -r requirements.txt
 
 >>>>>   then directley run the project 
 command: streamlit run ui/streamlit_app.py
+
+add this in env file 
+GROQ_API_KEY=""
