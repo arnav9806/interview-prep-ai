@@ -2,13 +2,14 @@ import streamlit as st
 import sys
 import os
 
-# Add parent directory to sys.path to avoid 'module not found'
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.parsers.resume_parser import parse_resume
 from app.rag.chunker import chunk_text
-from app.rag.embeddings import create_embeddings
-from app.rag.vector_store import ResumeVectorStore
+from app.rag.embeddings import create_embeddings, create_query_embedding
+from app.rag.vector_store import run_debug_pipeline
+from app.rag.query_builder import build_dynamic_query
+from app.rag.vector_store import create_collection, add_chunks, search
 from app.chains.question_chain import generate_questions
 from app.services.ats_service import calculate_ats_score
 from app.services.resume_analysis import analyze_resume
@@ -105,23 +106,103 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
             # -----------------------
             # Create Embeddings
             # -----------------------
-            embeddings = create_embeddings(chunks)
+            # embeddings = create_embeddings(chunks)
+            chunks_with_embeddings, embeddings = create_embeddings(chunks)
             print("Embeddings created")
-            print("First embedding vector length:", len(embeddings[0]))
+            # print("First embedding vector length:", len(embeddings[0]))
+            if embeddings:
+                print("First embedding vector length:", len(embeddings[0]))
+            else:
+                print("❌ No embeddings created")
             print("Total embeddings:", len(embeddings))
+            
+            # -----------------------
+            # QDRANT INITIALIZATION
+            # -----------------------
+            from app.rag.vector_store import (
+                create_collection,
+                add_chunks,
+                search,
+                check_collection,
+                debug_qdrant
+            )
+
+            print("\n🚀 INITIALIZING QDRANT PIPELINE")
+
+            # 1. Check connection
+            debug_qdrant()
+            
+            # -----------------------
+            # RESET COLLECTION (DEV ONLY)
+            # -----------------------
+            from app.rag.vector_store import client
+
+            try:
+                client.delete_collection("resume_chunks")
+                print("🗑️ Old collection deleted")
+            except:
+                print("No existing collection to delete")
+
+            # 2. Create collection
+            create_collection(vector_size=len(embeddings[0]))
+
 
             # -----------------------
-            # FAISS Vector Store
+            # STORE RESUME (ALWAYS)
             # -----------------------
             if len(embeddings) > 0:
-                vector_store = ResumeVectorStore(embedding_dim=len(embeddings[0]))
-                vector_store.add_embeddings(embeddings)
-                vector_store.save_index()
+                print("\n📄 Storing Resume Chunks...")
+                add_chunks(chunks_with_embeddings, embeddings, source="resume")
 
-                # Optional: Test search
-                distances, indices = vector_store.search(embeddings[0], top_k=3)
-                print("Search test distances:", distances)
-                print("Search test indices:", indices)
+
+            # -----------------------
+            # PROCESS JOB DESCRIPTION (FIXED)
+            # -----------------------
+            if jd_text and jd_text.strip():
+
+                print("\n📄 Processing Job Description...")
+
+                # 1. Chunk JD
+                jd_chunks = chunk_text(jd_text)
+                print("✅ JD chunks created:", len(jd_chunks))
+
+                # 2. Embed JD
+                jd_chunks_with_embeddings, jd_embeddings = create_embeddings(jd_chunks)
+                print("✅ JD embeddings created:", len(jd_embeddings))
+
+                # 3. Store JD
+                if len(jd_embeddings) > 0:
+                    print("📦 Storing JD chunks in Qdrant...")
+                    add_chunks(jd_chunks_with_embeddings, jd_embeddings, source="jd")
+                else:
+                    print("❌ No JD embeddings created")
+
+
+            # -----------------------
+            # VERIFY EVERYTHING (IMPORTANT)
+            # -----------------------
+            check_collection(limit=10)
+            
+            query_text = build_dynamic_query(chunks=chunks_with_embeddings, jd_text=jd_text)
+
+            query_vector = create_query_embedding(query_text)
+
+            results = search(
+                query_vector,
+                top_k=5,
+                source="resume"   # 🔥 IMPORTANT
+            )
+
+                # -----------------------
+                # STREAMLIT UI OUTPUT
+                # -----------------------
+            st.subheader("🔍 Top Matching Resume Sections")
+
+            for res in results:
+                    st.write(f"**Section:** {res['section']}")
+                    st.write(f"**Score:** {res['score']:.4f}")
+                    st.write(res["text"][:300])
+                    st.divider()
 
             # ==============================
             # Generate Questions
@@ -169,14 +250,7 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
                     st.subheader("Resume Analysis")
 
                     st.write(result)
-            # elif calculate_ats_btn:
-            #     st.subheader("ATS Score")
-            #     st.metric("Score", "78 / 100")
-            #     st.write("Missing Skills")
-            #     st.write("- Docker")
-            #     st.write("- Kubernetes")
-            #     st.write("- AWS")
-
+   
             # ==============================
             # Resume Improvements
             # ==============================
@@ -188,16 +262,7 @@ if generate_questions_btn or calculate_ats_btn or improve_resume_btn:
                     else:
                         result = improve_resume(resume_text)
                 st.write(result)
-            # elif improve_resume_btn:
-            #     st.subheader("Resume Improvements")
-            #     suggestions = [
-            #         "Add measurable achievements",
-            #         "Improve project descriptions",
-            #         "Include cloud technologies",
-            #         "Add GitHub project links"
-            #     ]
-            #     for s in suggestions:
-            #         st.write(f"- {s}")
+
 
         except Exception as e:
             st.error(f"Error processing resume: {e}")

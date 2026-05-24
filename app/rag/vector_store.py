@@ -1,9 +1,11 @@
 # app/rag/vector_store.py
 
 import os
+import uuid
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 load_dotenv()
 
@@ -52,29 +54,52 @@ def create_collection(vector_size=768):
                 distance=Distance.COSINE
             )
         )
-        print(f"\n✅ Collection '{COLLECTION_NAME}' created in Qdrant")
+
+        print(f"\n✅ Collection '{COLLECTION_NAME}' created")
+
+        # 🔥 ADD THESE LINES
+        client.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name="source",
+            field_schema="keyword"
+        )
+
+        client.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name="section",
+            field_schema="keyword"
+        )
+
+        print("✅ Payload indexes created")
+
     else:
-        print(f"\n✅ Collection '{COLLECTION_NAME}' already exists")
-
-
+        print(f"\n✅ Collection already exists")
 # ======================================
 # 📥 ADD CHUNKS (UPSERT)
 # ======================================
-def add_chunks(chunks, embeddings):
+def add_chunks(chunks, embeddings, source="resume"):
     points = []
 
     for i, (chunk, vector) in enumerate(zip(chunks, embeddings)):
 
-        text = chunk["text"] if isinstance(chunk, dict) else chunk
-        section = chunk.get("section", "general") if isinstance(chunk, dict) else "general"
+        text = chunk["text"]
+        metadata = chunk.get("metadata", {})
+
+        section = metadata.get("section", "general")
+        chunk_id = metadata.get("chunk_id", i)
+
+        # ✅ FIX: Use UUID or integer (recommended UUID)
+        point_id = str(uuid.uuid4())
 
         points.append(
             PointStruct(
-                id=i,
+                id=point_id,
                 vector=vector,
                 payload={
                     "text": text,
-                    "section": section
+                    "section": section,
+                    "chunk_id": chunk_id,
+                    "source": source   # 🔥 IMPORTANT
                 }
             )
         )
@@ -88,35 +113,78 @@ def add_chunks(chunks, embeddings):
     print("Upsert response:", result)
     print("Total chunks uploaded:", len(points))
 
-
 # ======================================
 # 🔎 SEARCH FUNCTION
 # ======================================
-def search(query_vector, top_k=3):
-    results = client.search(
+def search(query_vector, top_k=3, source=None, section=None):
+
+    filters = []
+
+    if source:
+        filters.append(
+            FieldCondition(
+                key="source",
+                match=MatchValue(value=source)
+            )
+        )
+
+    if section:
+        filters.append(
+            FieldCondition(
+                key="section",
+                match=MatchValue(value=section)
+            )
+        )
+
+    query_filter = None
+    if filters:
+        query_filter = Filter(must=filters)
+
+    results = client.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=query_vector,
+        query=query_vector,
+        query_filter=query_filter,
         limit=top_k
-    )
+    ).points
 
     output = []
 
     print("\n🔍 QDRANT SEARCH RESULTS:")
 
     for i, r in enumerate(results):
+
+        base_score = r.score
+        section = r.payload.get("section")
+        source = r.payload.get("source")
+
+        # 🔥 BOOSTING
+        boost = 1.0
+
+        if source == "resume":
+            boost += 0.2
+
+        if section in ["skills", "experience"]:
+            boost += 0.3
+
+        final_score = base_score * boost
+
         print(f"\nResult {i}")
-        print("Score:", r.score)
-        print("Section:", r.payload.get("section"))
-        print("Text:", r.payload.get("text")[:150])
+        print("Base Score:", base_score)
+        print("Final Score:", final_score)
+        print("Section:", section)
+        print("Source:", source)
 
         output.append({
-            "score": r.score,
+            "score": final_score,
             "text": r.payload.get("text"),
-            "section": r.payload.get("section")
+            "section": section,
+            "source": source
         })
 
-    return output
+    # 🔥 SORT AFTER BOOST
+    output = sorted(output, key=lambda x: x["score"], reverse=True)
 
+    return output
 
 # ======================================
 # 🔎 DEBUG: CHECK STORED DATA
@@ -140,6 +208,8 @@ def check_collection(limit=5):
         print("ID:", p.id)
         print("Section:", p.payload.get("section"))
         print("Preview:", p.payload.get("text")[:120])
+        print("Section:", p.payload.get("section"))
+        print("Source:", p.payload.get("source"))   
 
 
 # ======================================
@@ -153,100 +223,3 @@ def run_debug_pipeline(chunks, embeddings):
     add_chunks(chunks, embeddings)
     check_collection()
 
-
-
-# import os
-# from dotenv import load_dotenv
-# from qdrant_client import QdrantClient
-# from qdrant_client.models import Distance, VectorParams, PointStruct
-
-# load_dotenv()
-
-# QDRANT_URL = os.getenv("QDRANT_URL")
-# QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-
-# # ======================================
-# # 🚀 INIT QDRANT CLIENT (CLOUD)
-# # ======================================
-# client = QdrantClient(
-#     url=QDRANT_URL,
-#     api_key=QDRANT_API_KEY
-# )
-
-# COLLECTION_NAME = "resume_chunks"
-
-# def debug_qdrant():
-#     collections = client.get_collections()
-#     print("\n📦 QDRANT CONNECTION ACTIVE")
-#     print("Collections:", [c.name for c in collections.collections])
-    
-# debug_qdrant()
-
-# # ======================================
-# # 📦 CREATE COLLECTION
-# # ======================================
-# def create_collection(vector_size=768):
-#     existing = [c.name for c in client.get_collections().collections]
-
-#     if COLLECTION_NAME not in existing:
-#         client.create_collection(
-#             collection_name=COLLECTION_NAME,
-#             vectors_config=VectorParams(
-#                 size=vector_size,
-#                 distance=Distance.COSINE
-#             )
-#         )
-#         print("✅ Qdrant collection created")
-#     else:
-#         print("✅ Collection already exists")
-
-
-# # ======================================
-# # 📥 ADD CHUNKS
-# # ======================================
-# def add_chunks(chunks, embeddings):
-#     points = []
-
-#     for i, (chunk, vector) in enumerate(zip(chunks, embeddings)):
-
-#         text = chunk["text"] if isinstance(chunk, dict) else chunk
-
-#         points.append(
-#             PointStruct(
-#                 id=i,
-#                 vector=vector,
-#                 payload={
-#                     "text": text,
-#                     "section": chunk.get("section", "general") if isinstance(chunk, dict) else "general"
-#                 }
-#             )
-#         )
-
-#     client.upsert(
-#         collection_name=COLLECTION_NAME,
-#         points=points
-#     )
-
-#     print(f"✅ Added {len(points)} chunks to Qdrant")
-
-
-# # ======================================
-# # 🔎 SEARCH
-# # ======================================
-# def search(query_vector, top_k=3):
-#     results = client.search(
-#         collection_name=COLLECTION_NAME,
-#         query_vector=query_vector,
-#         limit=top_k
-#     )
-
-#     output = []
-#     for r in results:
-#         output.append({
-#             "score": r.score,
-#             "text": r.payload["text"],
-#             "section": r.payload["section"]
-#         })
-#     print("Output>>>>>>>>>>>>", output)
-
-#     return output

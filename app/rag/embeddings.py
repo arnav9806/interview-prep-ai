@@ -1,5 +1,3 @@
-# app/rag/embeddings.py
-
 import os
 import numpy as np
 from dotenv import load_dotenv
@@ -15,57 +13,110 @@ API_KEY = os.getenv("GOOGLE_API_KEY")
 
 print("🔐 Loading Gemini API key...")
 
-# ✅ NEW WAY (NO configure)
 client = genai.Client(api_key=API_KEY)
 
 print("✅ Gemini configured successfully")
 
-def normalize_embeddings(embeddings):
-    return np.array([
-        e / np.linalg.norm(e) if np.linalg.norm(e) != 0 else e
-        for e in embeddings
-    ])
 
 # ======================================
-# 🚀 CREATE EMBEDDINGS
+# 🔧 NORMALIZATION
+# ======================================
+def normalize_vector(vector):
+    norm = np.linalg.norm(vector)
+    return vector / norm if norm != 0 else vector
+
+
+def normalize_embeddings(embeddings):
+    return [normalize_vector(e) for e in embeddings]
+
+# ======================================
+# 🚀 CREATE EMBEDDINGS (DOCUMENTS)
 # ======================================
 def create_embeddings(chunks):
-    texts = []
+    enriched_chunks = []
+    embeddings = []
+
+    print(f"\n📊 Total chunks to embed: {len(chunks)}")
 
     for i, chunk in enumerate(chunks):
         text = chunk["text"] if isinstance(chunk, dict) else chunk
-        texts.append(text)
 
-        print(f"\n🧩 Chunk {i} | Length: {len(text)}")
-        print(f"Preview: {text[:100]}")
+        if not text or len(text.strip()) == 0:
+            print(f"⚠️ Skipping empty chunk {i}")
+            continue
 
-    print(f"\n📊 Total chunks to embed: {len(texts)}")
+        print(f"\n🔹 Embedding chunk {i} | Length: {len(text)}")
+
+        try:
+            response = client.models.embed_content(
+                model="gemini-embedding-2",
+                contents=[text],   # ✅ SINGLE INPUT ONLY
+                config=types.EmbedContentConfig(
+                    output_dimensionality=768
+                )
+            )
+
+            embedding = response.embeddings[0].values
+
+            # normalize
+            norm = np.linalg.norm(embedding)
+            embedding = embedding / norm if norm != 0 else embedding
+
+        except Exception as e:
+            print(f"❌ Failed chunk {i}: {e}")
+            continue
+
+        # attach
+        if isinstance(chunk, dict):
+            chunk_copy = chunk.copy()
+            chunk_copy["embedding"] = embedding
+        else:
+            chunk_copy = {
+                "text": chunk,
+                "embedding": embedding,
+                "section": "general"
+            }
+
+        enriched_chunks.append(chunk_copy)
+        embeddings.append(embedding)
+
+    print("\n✅ EMBEDDING COMPLETED")
+    print(f"Total embeddings: {len(embeddings)}")
+
+    if embeddings:
+        print(f"Embedding dimension: {len(embeddings[0])}")
+    else:
+        print("❌ No embeddings created")
+
+    return enriched_chunks, embeddings
+
+
+# ======================================
+# 🔍 CREATE QUERY EMBEDDING
+# ======================================
+def create_query_embedding(text):
+    print(f"\n🔎 Creating query embedding...")
+    print(f"Query: {text}")
 
     try:
         response = client.models.embed_content(
             model="gemini-embedding-2",
-            contents=texts,
+            contents=[text],
             config=types.EmbedContentConfig(
                 output_dimensionality=768
             )
         )
 
-        embeddings = [e.values for e in response.embeddings]
+        embedding = response.embeddings[0].values
 
-        print("✅ Batch embedding successful")
+        # 🔥 NORMALIZE
+        embedding = normalize_vector(embedding)
+
+        print("✅ Query embedding created")
+        print(f"Dimension: {len(embedding)}")
+
+        return embedding
 
     except Exception as e:
-        print(f"❌ Embedding failed: {e}")
-        return []
-
-    # 🔥 NORMALIZATION
-    embeddings = normalize_embeddings(embeddings)
-
-    # 🔥 ATTACH METADATA
-    for i in range(len(chunks)):
-        chunks[i]["embedding"] = embeddings[i]
-
-    print("\n✅ EMBEDDING COMPLETED")
-    print(f"Total embeddings: {len(embeddings)}")
-
-    return chunks
+        print(f"❌ Query embedding failed: {e}")
+        return None

@@ -1,31 +1,42 @@
-# app/rag/retriever.py
-
-from app.rag.vector_store import ResumeVectorStore
-from app.rag.embeddings import create_embeddings
+from app.rag.embeddings import create_query_embedding
+from app.rag.vector_store import search
 
 
 class ResumeRetriever:
 
     def __init__(self):
-        print("Initializing ResumeRetriever...")
+        print("🚀 Initializing Qdrant Retriever...")
 
-        # Load FAISS index
-        self.vector_store = ResumeVectorStore()
-        self.vector_store.load_index()
-
-        print("FAISS index loaded successfully")
-
-    def retrieve_chunks(self, query_text, top_k=3):
+    def retrieve_chunks(
+        self,
+        query_text,
+        top_k=5,
+        source=None,        # "resume" or "jd"
+        section=None        # "skills", "experience", etc
+    ):
         """
-        Retrieve most relevant resume chunks using FAISS
+        Retrieve relevant chunks from Qdrant
         """
-        print("Creating embedding for query...")
-        # Create embedding for query
-        query_embedding = create_embeddings([query_text])[0]
-        print("🔎 Searching FAISS index...")
 
-        distances, indices = self.vector_store.search(query_embedding, top_k)
-        print("Retrieved chunk indices:", indices)
-        print("Distances:", distances)
+        print("\n🔎 STEP 1: Creating query embedding...")
+        query_vector = create_query_embedding(query_text)
 
-        return indices, distances
+        if query_vector is None:
+            print("❌ Query embedding failed")
+            return []
+
+        print("✅ Query embedding ready")
+
+        print("\n🔎 STEP 2: Searching Qdrant...")
+
+        results = search(
+            query_vector=query_vector,
+            top_k=top_k,
+            source=source,
+            section=section
+                
+        )
+
+        print(f"✅ Retrieved {len(results)} chunks")
+
+        return results
